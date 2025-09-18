@@ -1,0 +1,10 @@
+# Replace domain names with your actual DNS (A/AAAA) pointed at this host
+explorer.quantumcoincrypto.com {
+  encode gzip
+  reverse_proxy web:80
+}
+
+api.explorer.quantumcoincrypto.com {
+  encode gzip
+  reverse_proxy api:8080
+}
