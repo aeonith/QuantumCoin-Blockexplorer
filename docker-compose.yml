@@ -1,0 +1,63 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: qtc
+      POSTGRES_USER: qtc
+      POSTGRES_DB: qtc
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qtc -d qtc"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  indexer:
+    build: ./indexer
+    environment:
+      DATABASE_URL: postgres://qtc:qtc@db:5432/qtc
+      QTC_RPC: ${QTC_RPC:-https://rpc.quantumcoincrypto.com}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  api:
+    build: ./api
+    environment:
+      DATABASE_URL: postgres://qtc:qtc@db:5432/qtc
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      SUPPLY_TOTAL: ${SUPPLY_TOTAL:-22000000}        # minimal units (no decimals) if you prefer
+      SUPPLY_CIRC: ${SUPPLY_CIRC:-22000000}
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  web:
+    build: ./web
+    environment:
+      VITE_API: ${VITE_API:-https://api.explorer.quantumcoincrypto.com}
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+    depends_on:
+      - api
+      - web
+    restart: unless-stopped
+
+volumes:
+  pgdata:
